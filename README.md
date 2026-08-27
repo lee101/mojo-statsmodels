@@ -83,22 +83,26 @@ statsmodels' exact state-space MLE.
 
 | benchmark | mojo-statsmodels | statsmodels | relative |
 | --- | ---: | ---: | ---: |
-| OLS.fit (200,000 x 12) | 75.36 ms | 247.59 ms | 3.29x faster |
-| OLS.predict (500,000 x 12) | 28.95 ms | 22.64 ms | 1.28x slower |
-| Binomial GLM.fit (100,000 x 8) | 162.23 ms | 823.14 ms | 5.07x faster |
-| Poisson GLM.fit (100,000 x 8) | 193.26 ms | 532.87 ms | 2.76x faster |
-| ARIMA(2,0,1).fit (20,000) | 88.94 ms | 10,969.37 ms | 123.34x faster |
+| OLS.fit (200,000 x 12) | 65.09 ms | 282.94 ms | 4.35x faster |
+| OLS.predict (500,000 x 12) | 6.24 ms | 2.98 ms | 2.10x slower |
+| Binomial GLM.fit (100,000 x 8) | 159.29 ms | 465.95 ms | 2.93x faster |
+| Poisson GLM.fit (100,000 x 8) | 106.30 ms | 620.45 ms | 5.84x faster |
+| ARIMA(2,0,1).fit (20,000) | 68.66 ms | 7,887.16 ms | 114.88x faster |
 
-Large prediction dispatches the zero-copy NumPy buffers to optimized BLAS;
-small predictions stay in the Mojo SIMD kernel to avoid BLAS setup overhead.
+Narrow prediction uses the Mojo SIMD kernel at every row count; wide, large
+prediction dispatches the same zero-copy NumPy buffers to optimized BLAS.
+Prediction no longer allocates and scans a temporary finite-value mask;
+non-finite inputs propagate through the result as they do in statsmodels.
 The fitting wins come from native-width SIMD system updates, keeping the
 complete IRLS loop in compiled code, and avoiding a redundant full-design rank
 decomposition on the full-rank OLS path.
 
-Measured CPU task-launch and reduction overhead outweighed parallel speedups at
-these sizes, so the kernels remain serial. No GPU path is included: prediction
-and system construction are streamed kernels at or below roughly 2 flops per
-byte moved, while ARIMA is recursive, so device transfers and launches are not
+Explicit threading is not added: large prediction already uses optimized BLAS,
+while the fitting kernels require reductions whose task-launch and merge costs
+outweigh parallel speedups at these sizes. No GPU path is included because no
+covered kernel has the required arithmetic intensity: prediction and system
+construction are streamed kernels at or below roughly 2 flops per byte moved,
+while ARIMA is recursive. Device transfers and launches are therefore not
 justified. Run `pixi run bench` to reproduce the table under the repository's
 machine-wide benchmark lock.
 

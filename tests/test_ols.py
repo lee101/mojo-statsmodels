@@ -78,6 +78,29 @@ def test_large_ols_prediction_parity(regression_data):
     assert np.allclose(ours.predict(large_x), theirs.predict(large_x))
 
 
+@pytest.mark.parametrize("rows, k", [(12_500, 8), (5_882, 17), (5_883, 17)])
+def test_ols_prediction_dispatch_threshold(rows, k):
+    rng = np.random.default_rng(rows + k)
+    x = np.ascontiguousarray(rng.normal(size=(200, k)))
+    beta = rng.normal(size=k)
+    y = np.ascontiguousarray(x @ beta + rng.normal(scale=0.2, size=len(x)))
+    ours = msm.OLS(y, x).fit()
+    theirs = sm.OLS(y, x).fit()
+    test_x = np.ascontiguousarray(rng.normal(size=(rows, k)))
+    assert np.allclose(ours.predict(test_x), theirs.predict(test_x), atol=1e-12)
+
+
+def test_ols_prediction_propagates_nonfinite(regression_data):
+    x, y = regression_data
+    ours = msm.OLS(y, x).fit()
+    theirs = sm.OLS(y, x).fit()
+    test_x = x[:3].copy()
+    test_x[1, 2] = np.nan
+    assert np.allclose(
+        ours.predict(test_x), theirs.predict(test_x), equal_nan=True
+    )
+
+
 @pytest.mark.parametrize("cov_type", ["HC0", "HC1", "HC2", "HC3"])
 def test_ols_robust_covariance(regression_data, cov_type):
     x, y = regression_data

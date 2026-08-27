@@ -10,12 +10,17 @@ def ptr(addr: Int) -> Ptr:
 
 
 def dot(a: Ptr, b: Ptr, n: Int) -> Float64:
-    var acc = SIMD[DType.float64, W](0.0)
+    var acc0 = SIMD[DType.float64, W](0.0)
+    var acc1 = SIMD[DType.float64, W](0.0)
     var i = 0
+    while i + 2 * W <= n:
+        acc0 += a.load[width=W](i) * b.load[width=W](i)
+        acc1 += a.load[width=W](i + W) * b.load[width=W](i + W)
+        i += 2 * W
     while i + W <= n:
-        acc += a.load[width=W](i) * b.load[width=W](i)
+        acc0 += a.load[width=W](i) * b.load[width=W](i)
         i += W
-    var total = acc.reduce_add()
+    var total = (acc0 + acc1).reduce_add()
     while i < n:
         total += a[i] * b[i]
         i += 1

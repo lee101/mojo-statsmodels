@@ -121,10 +121,8 @@ class RegressionModel:
         parameters = f64(params, ndim=1)
         if x.shape[1] != parameters.size:
             raise ValueError("exog and params have incompatible dimensions")
-        if not np.all(np.isfinite(x)) or not np.all(np.isfinite(parameters)):
-            raise ValueError("exog and params must be finite")
         prediction = np.empty(x.shape[0])
-        if x.size >= _BLAS_PREDICT_MIN_ELEMENTS:
+        if x.size >= _BLAS_PREDICT_MIN_ELEMENTS and x.shape[1] > 16:
             np.matmul(x, parameters, out=prediction)
         else:
             lib().mst_linear_predict(
